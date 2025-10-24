@@ -24,8 +24,11 @@ import {
   Edit,
   Trash2,
   User as UserIcon,
-  X
+  X,
+  UserX,
+  LogOut
 } from "lucide-react";
+import { getAuthUser, clearAuthData } from "../lib/auth";
 
 export default function HROutsourcingDashboard() {
   const router = useRouter();
@@ -34,9 +37,23 @@ export default function HROutsourcingDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [staffList, setStaffList] = useState([]);
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current: '',
+    new: '',
+    confirm: ''
+  });
 
-  // Load staff data from localStorage on component mount
+  // Load staff data and check authentication on component mount
   useEffect(() => {
+    const user = getAuthUser();
+    if (!user || !user.permissions.includes('hr_module_access')) {
+      router.push('/login');
+      return;
+    }
+    setAuthUser(user);
+
     const saved = localStorage.getItem("staff_list");
     if (saved) {
       try {
@@ -45,7 +62,7 @@ export default function HROutsourcingDashboard() {
         console.error("Error parsing staff data:", error);
       }
     }
-  }, []);
+  }, [router]);
 
   // Check for birthdays today and send automatic message
   useEffect(() => {
@@ -91,14 +108,42 @@ export default function HROutsourcingDashboard() {
   const activeStaff = staffList.filter((staff: any) => staff.status === "Active").length;
   const inactiveStaff = totalStaff - activeStaff;
 
-  // Navigation menu items
+  // Calculate leave statistics from localStorage
+  const leaveStats = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("leave_requests");
+      if (saved) {
+        try {
+          const leaveRequests = JSON.parse(saved);
+          return {
+            pendingRequests: leaveRequests.filter((req: any) => req.status === "Pending").length,
+            approvedRequests: leaveRequests.filter((req: any) => req.status === "Approved").length,
+            rejectedRequests: leaveRequests.filter((req: any) => req.status === "Rejected").length,
+            employeesOnLeave: leaveRequests.filter((req: any) => {
+              const today = new Date();
+              const startDate = new Date(req.startDate);
+              const endDate = new Date(req.endDate);
+              return req.status === "Approved" && today >= startDate && today <= endDate;
+            }).length
+          };
+        } catch (error) {
+          console.error("Error parsing leave requests for stats:", error);
+        }
+      }
+    }
+    return {
+      pendingRequests: 0,
+      approvedRequests: 0,
+      rejectedRequests: 0,
+      employeesOnLeave: 0
+    };
+  }, []);
+
+  // Navigation menu items - Only business operations for HR accounts
   const navigationItems = [
-    { id: 1, title: "Dashboard", icon: BarChart3, href: "/" },
-    { id: 2, title: "My Info", icon: User },
-    { id: 3, title: "People", icon: Users },
-    { id: 4, title: "Leave Management", icon: Calendar },
-    { id: 5, title: "Report", icon: FileText },
-    { id: 6, title: "E-Signature", icon: Award },
+    { id: 1, title: "E-Signature", icon: Award, href: "/hr-outsourcing/e-signature" },
+    { id: 2, title: "Project", icon: Briefcase, href: "/business-operation" },
+    { id: 3, title: "Report", icon: FileText, href: "/hr-outsourcing/report" },
   ];
 
   // HR Statistics data type
@@ -138,14 +183,60 @@ export default function HROutsourcingDashboard() {
       icon: UserCheck,
       description: "Currently active"
     },
+    {
+      id: 3,
+      title: "Pending Leave",
+      value: leaveStats.pendingRequests.toString(),
+      change: leaveStats.pendingRequests > 0 ? `${leaveStats.pendingRequests}` : "0",
+      changeType: leaveStats.pendingRequests > 0 ? "neutral" : "positive",
+      bgGradient: "from-yellow-50 to-yellow-100",
+      textColor: "text-yellow-900",
+      icon: Clock,
+      description: "Awaiting approval"
+    },
+    {
+      id: 4,
+      title: "On Leave",
+      value: leaveStats.employeesOnLeave.toString(),
+      change: leaveStats.employeesOnLeave > 0 ? `${leaveStats.employeesOnLeave}` : "0",
+      changeType: "neutral",
+      bgGradient: "from-purple-50 to-purple-100",
+      textColor: "text-purple-900",
+      icon: UserX,
+      description: "Currently on leave"
+    },
   ];
 
-  // Dashboard widgets data
-  const timeOffData = [
-    { name: "Sarah Johnson", type: "Annual Leave", dates: "Dec 18-22", status: "Pending" },
-    { name: "Mike Chen", type: "Sick Leave", dates: "Dec 15", status: "Approved" },
-    { name: "Emma Davis", type: "Personal", dates: "Dec 20", status: "Pending" }
-  ];
+  // Dashboard widgets data - load from localStorage
+  const timeOffData = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("leave_requests");
+      if (saved) {
+        try {
+          const leaveRequests = JSON.parse(saved);
+          // Get only pending and approved requests for dashboard display
+          const relevantRequests = leaveRequests.filter((req: any) =>
+            req.status === "Pending" || req.status === "Approved"
+          ).slice(0, 3); // Limit to 3 items
+
+          return relevantRequests.map((req: any) => ({
+            name: req.employeeName,
+            type: req.leaveType,
+            dates: `${new Date(req.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${req.startDate !== req.endDate ? '-' + new Date(req.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}`,
+            status: req.status
+          }));
+        } catch (error) {
+          console.error("Error parsing leave requests:", error);
+        }
+      }
+    }
+    // Fallback data
+    return [
+      { name: "Sarah Johnson", type: "Annual Leave", dates: "Dec 18-22", status: "Pending" },
+      { name: "Mike Chen", type: "Sick Leave", dates: "Dec 15", status: "Approved" },
+      { name: "Emma Davis", type: "Personal", dates: "Dec 20", status: "Pending" }
+    ];
+  }, []);
 
   // Rwanda public holidays
   const rwandaHolidays = [
@@ -231,6 +322,23 @@ export default function HROutsourcingDashboard() {
     alert(`Personalized messages sent to all ${staffList.length} staff members for ${selectedHoliday.name}!`);
   };
 
+  const handleLogout = () => {
+    clearAuthData();
+    router.push('/login');
+  };
+
+  const handlePasswordChange = () => {
+    if (passwordData.new !== passwordData.confirm) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    // In a real app, this would call an API
+    alert('Password change functionality would be implemented here');
+    setShowPasswordChange(false);
+    setPasswordData({ current: '', new: '', confirm: '' });
+  };
+
   const genderData = {
     male: staffList.filter((staff: any) => staff.gender === "Male").length,
     female: staffList.filter((staff: any) => staff.gender === "Female").length,
@@ -264,21 +372,39 @@ export default function HROutsourcingDashboard() {
       }
     });
 
-    // Add pending leave requests (mock data for now - in real app would come from leave system)
-    const pendingLeaves = [
-      { id: 1, user: "Mike Chen", time: "4 hours ago" },
-      { id: 2, user: "Sarah Johnson", time: "1 day ago" }
-    ];
+    // Add pending leave requests from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("leave_requests");
+      if (saved) {
+        try {
+          const leaveRequests = JSON.parse(saved);
+          const pendingLeaves = leaveRequests.filter((req: any) => req.status === "Pending").slice(0, 3);
 
-    pendingLeaves.forEach(leave => {
-      activities.push({
-        id: `leave-${leave.id}`,
-        action: "Leave request needs approval",
-        user: leave.user,
-        time: leave.time,
-        type: "warning"
-      });
-    });
+          pendingLeaves.forEach((leave: any) => {
+            const requestedDate = new Date(leave.requestedDate);
+            const hoursSinceRequested = Math.floor((now.getTime() - requestedDate.getTime()) / (1000 * 60 * 60));
+
+            let timeString = "";
+            if (hoursSinceRequested < 24) {
+              timeString = `${hoursSinceRequested} hour${hoursSinceRequested > 1 ? 's' : ''} ago`;
+            } else {
+              const daysSinceRequested = Math.floor(hoursSinceRequested / 24);
+              timeString = `${daysSinceRequested} day${daysSinceRequested > 1 ? 's' : ''} ago`;
+            }
+
+            activities.push({
+              id: `leave-${leave.id}`,
+              action: "Leave request needs approval",
+              user: leave.employeeName,
+              time: timeString,
+              type: "warning"
+            });
+          });
+        } catch (error) {
+          console.error("Error parsing leave requests for activities:", error);
+        }
+      }
+    }
 
     // Add pending onboarding tasks
     const pendingOnboardingTasks = [
@@ -312,14 +438,12 @@ export default function HROutsourcingDashboard() {
   }, [staffList, showAllActivities]);
 
   const handleNavClick = (title: string) => {
-    if (title === "My Info") {
-      router.push('/hr-outsourcing/my-info');
-    } else if (title === "People") {
-      router.push('/hr-outsourcing/people');
-    } else if (title === "Leave Management") {
-      router.push('/hr-outsourcing/leave-management');
-    } else if (title === "E-Signature") {
+    if (title === "E-Signature") {
       router.push('/hr-outsourcing/e-signature');
+    } else if (title === "Project") {
+      router.push('/business-operation');
+    } else if (title === "Report") {
+      router.push('/hr-outsourcing/report');
     } else {
       setActiveSubNav(title);
     }
@@ -401,6 +525,13 @@ export default function HROutsourcingDashboard() {
                 <Settings className="w-5 h-5" />
                 <span className="font-medium">Settings</span>
               </button>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-red-600/50 hover:text-red-400 transition-all duration-200"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Logout</span>
+              </button>
             </div>
           </div>
         </nav>
@@ -439,14 +570,28 @@ export default function HROutsourcingDashboard() {
                     <Bell className="w-5 h-5" />
                     <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
                   </button>
+                  <button
+                    onClick={() => setShowPasswordChange(true)}
+                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                    title="Settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
                   <div className="flex items-center space-x-3 bg-slate-100 rounded-2xl p-2">
                     <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                       <User className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Lionel Ishimwe</p>
-                      <p className="text-xs text-slate-500">Admin</p>
+                      <p className="text-sm font-semibold text-slate-800">{authUser?.user.email.split('@')[0] || 'User'}</p>
+                      <p className="text-xs text-slate-500">{authUser?.role === 'hr_manager' ? 'HR Manager' : 'Admin'}</p>
                     </div>
+                    <button
+                      onClick={handleLogout}
+                      className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                      title="Logout"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -770,6 +915,71 @@ export default function HROutsourcingDashboard() {
                     Send to All Staff
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Password Change Modal */}
+        {showPasswordChange && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 shadow-xl border border-slate-200/50 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-slate-800">Change Password</h3>
+                <button
+                  onClick={() => setShowPasswordChange(false)}
+                  className="text-slate-400 hover:text-slate-600 text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.current}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, current: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.new}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, new: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter new password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.confirm}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirm: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowPasswordChange(false)}
+                  className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePasswordChange}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Change Password
+                </button>
               </div>
             </div>
           </div>

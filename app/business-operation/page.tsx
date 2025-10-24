@@ -24,11 +24,13 @@ import {
   Edit,
   Trash2,
   FileDown,
+  LogOut,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 // @ts-ignore
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { clearAuthData, getAuthUser } from '../../lib/auth';
 
 // Dynamic imports for client-side only components
 const Document = dynamic(() => import('react-pdf').then(mod => ({ default: mod.Document })), {
@@ -866,6 +868,18 @@ export default function BusinessOperationPage() {
               >
                 <BarChart3 className="w-4 h-4" />
                 <span className="text-sm font-medium">Report</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to logout?')) {
+                    clearAuthData();
+                    router.push('/login');
+                  }
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-all duration-200 text-slate-300 hover:bg-slate-700/50 hover:text-white"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm font-medium">Logout</span>
               </button>
             </div>
           </div>

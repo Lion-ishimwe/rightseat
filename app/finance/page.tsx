@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, FileText, DollarSign, TrendingUp, PieChart, Receipt, FolderOpen, Folder, Plus, Edit, Trash2, ChevronRight, ChevronDown, Grid, List, Search, Download, CreditCard, PlusCircle, MinusCircle, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, DollarSign, TrendingUp, PieChart, Receipt, FolderOpen, Folder, Plus, Edit, Trash2, ChevronRight, ChevronDown, Grid, List, Search, Download, CreditCard, PlusCircle, MinusCircle, ChevronUp, ChevronDown as ChevronDownIcon, Settings, LogOut } from 'lucide-react';
+import JSZip from 'jszip';
+import { getAuthUser, clearAuthData } from '../../lib/auth';
 
 interface FileItem {
   id: string;
@@ -28,6 +30,13 @@ interface Transaction {
 export default function FinancePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current: '',
+    new: '',
+    confirm: ''
+  });
   const [fileStructure, setFileStructure] = useState<FileItem[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('financeFileStructure');
@@ -122,6 +131,7 @@ export default function FinancePage() {
   const [showDeleteTransactionConfirm, setShowDeleteTransactionConfirm] = useState(false);
   const [deleteTransactionToConfirm, setDeleteTransactionToConfirm] = useState<Transaction | null>(null);
   const [deleteTransactionConfirmText, setDeleteTransactionConfirmText] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Transaction | null;
     direction: 'asc' | 'desc' | 'week' | 'month' | 'today' | 'this_week' | 'last_week' | 'last_month';
@@ -190,6 +200,33 @@ export default function FinancePage() {
   }, [transactions]);
 
   const [uploadKey, setUploadKey] = useState(0);
+
+  // Authentication check
+  useEffect(() => {
+    const user = getAuthUser();
+    if (!user || !user.permissions.includes('finance_module_access')) {
+      router.push('/login');
+      return;
+    }
+    setAuthUser(user);
+  }, [router]);
+
+  const handleLogout = () => {
+    clearAuthData();
+    router.push('/login');
+  };
+
+  const handlePasswordChange = () => {
+    if (passwordData.new !== passwordData.confirm) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    // In a real app, this would call an API
+    alert('Password change functionality would be implemented here');
+    setShowPasswordChange(false);
+    setPasswordData({ current: '', new: '', confirm: '' });
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -338,13 +375,44 @@ export default function FinancePage() {
     return breadcrumbs;
   };
 
-  const handleDownload = (item: FileItem) => {
-    // In a real application, this would download the actual file
-    // For now, we'll create a simple text file as a placeholder
+  const handleDownload = async (item: FileItem) => {
+    if (item.type === 'file') {
+      // In a real application, this would download the actual file
+      // For now, we'll create a simple text file as a placeholder
+      const element = document.createElement('a');
+      const file = new Blob([`This is a placeholder for ${item.name}`], { type: 'text/plain' });
+      element.href = URL.createObjectURL(file);
+      element.download = item.name;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } else if (item.type === 'folder') {
+      // Download folder as ZIP
+      await downloadFolderAsZip(item);
+    }
+  };
+
+  const downloadFolderAsZip = async (folder: FileItem) => {
+    const zip = new JSZip();
+
+    const addItemsToZip = (items: FileItem[], currentPath = '') => {
+      items.forEach(item => {
+        if (item.type === 'file') {
+          // Add placeholder file content
+          zip.file(`${currentPath}${item.name}`, `This is a placeholder for ${item.name}`);
+        } else if (item.type === 'folder' && item.children) {
+          const folderPath = `${currentPath}${item.name}/`;
+          addItemsToZip(item.children, folderPath);
+        }
+      });
+    };
+
+    addItemsToZip([folder]);
+
+    const content = await zip.generateAsync({ type: 'blob' });
     const element = document.createElement('a');
-    const file = new Blob([`This is a placeholder for ${item.name}`], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = item.name;
+    element.href = URL.createObjectURL(content);
+    element.download = `${folder.name}.zip`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -772,6 +840,10 @@ export default function FinancePage() {
       key={item.id}
       className="bg-slate-50 rounded-lg p-4 hover:bg-slate-100 transition-colors cursor-pointer group"
       onDoubleClick={() => item.type === 'folder' && setCurrentFolder(item.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, item });
+      }}
     >
       <div className="flex flex-col items-center space-y-3">
         <div className="relative">
@@ -839,6 +911,10 @@ export default function FinancePage() {
       key={item.id}
       className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
       onDoubleClick={() => item.type === 'folder' && setCurrentFolder(item.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, item });
+      }}
     >
       <div className="flex items-center space-x-3">
         {item.type === 'folder' ? (
@@ -908,8 +984,14 @@ export default function FinancePage() {
     </div>
   );
 
+  const handleClickOutside = (e: React.MouseEvent) => {
+    if (contextMenu) {
+      setContextMenu(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100" onClick={handleClickOutside}>
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 p-6">
         <div className="flex items-center justify-between">
@@ -925,6 +1007,13 @@ export default function FinancePage() {
               <p className="text-slate-600">Manage financial operations and documents</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </button>
         </div>
       </header>
 
@@ -2732,6 +2821,60 @@ export default function FinancePage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Context Menu */}
+        {contextMenu && contextMenu.item && (
+          <div
+            className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-2 min-w-48"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={() => setContextMenu(null)}
+          >
+            {contextMenu.item.type === 'folder' && (
+              <button
+                onClick={async () => {
+                  await handleDownload(contextMenu.item!);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download as ZIP</span>
+              </button>
+            )}
+            {contextMenu.item.type === 'file' && (
+              <button
+                onClick={async () => {
+                  await handleDownload(contextMenu.item!);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download</span>
+              </button>
+            )}
+            <button
+              onClick={() => {
+                startEditing(contextMenu.item!);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center space-x-2"
+            >
+              <Edit className="w-4 h-4" />
+              <span>Rename</span>
+            </button>
+            <button
+              onClick={() => {
+                deleteItem(contextMenu.item!.id);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete</span>
+            </button>
           </div>
         )}
       </main>
