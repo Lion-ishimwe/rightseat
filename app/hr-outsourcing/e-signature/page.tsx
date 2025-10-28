@@ -744,15 +744,18 @@ export default function ESignaturePage() {
             </div>
             <div className="border border-slate-200 rounded-lg p-4 mb-4">
               {typeof window !== 'undefined' && (
-                <DynamicSignatureCanvas
-                  ref={(r: any) => { sigPadRef.current = r; }}
-                  canvasProps={{
-                    width: 400,
-                    height: 200,
-                    className: 'border border-slate-200 rounded w-full h-auto',
-                  }}
-                  backgroundColor="rgba(0,0,0,0)"
-                />
+                <div className="relative">
+                  {/* @ts-ignore */}
+                  <DynamicSignatureCanvas
+                    canvasProps={{
+                      width: 400,
+                      height: 200,
+                      className: 'border border-slate-200 rounded w-full h-auto',
+                    }}
+                    backgroundColor="rgba(0,0,0,0)"
+                    ref={(r: any) => { sigPadRef.current = r; }}
+                  />
+                </div>
               )}
             </div>
             <div className="flex space-x-3">

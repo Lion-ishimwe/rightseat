@@ -4,7 +4,7 @@ export interface User {
   id: number;
   email: string;
   password_hash: string;
-  role: 'admin' | 'hr_manager' | 'manager' | 'employee';
+  role: 'admin' | 'hr_manager' | 'finance_manager' | 'business_manager' | 'talent_manager' | 'staff';
   is_active: boolean;
   created_at: Date;
   updated_at: Date;

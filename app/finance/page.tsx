@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, FileText, DollarSign, TrendingUp, PieChart, Receipt, FolderOpen, Folder, Plus, Edit, Trash2, ChevronRight, ChevronDown, Grid, List, Search, Download, CreditCard, PlusCircle, MinusCircle, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, DollarSign, TrendingUp, PieChart, Receipt, FolderOpen, Folder, Plus, Edit, Trash2, ChevronRight, ChevronDown, Grid, List, Search, Download, CreditCard, PlusCircle, MinusCircle, ChevronUp, ChevronDown as ChevronDownIcon, Settings, LogOut } from 'lucide-react';
+import JSZip from 'jszip';
+import { getAuthUser, clearAuthData } from '../../lib/auth';
 
 interface FileItem {
   id: string;
@@ -28,6 +30,13 @@ interface Transaction {
 export default function FinancePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current: '',
+    new: '',
+    confirm: ''
+  });
   const [fileStructure, setFileStructure] = useState<FileItem[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('financeFileStructure');
@@ -122,6 +131,7 @@ export default function FinancePage() {
   const [showDeleteTransactionConfirm, setShowDeleteTransactionConfirm] = useState(false);
   const [deleteTransactionToConfirm, setDeleteTransactionToConfirm] = useState<Transaction | null>(null);
   const [deleteTransactionConfirmText, setDeleteTransactionConfirmText] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Transaction | null;
     direction: 'asc' | 'desc' | 'week' | 'month' | 'today' | 'this_week' | 'last_week' | 'last_month';
@@ -190,6 +200,33 @@ export default function FinancePage() {
   }, [transactions]);
 
   const [uploadKey, setUploadKey] = useState(0);
+
+  // Authentication check
+  useEffect(() => {
+    const user = getAuthUser();
+    if (!user || !user.permissions.includes('finance_module_access')) {
+      router.push('/login');
+      return;
+    }
+    setAuthUser(user);
+  }, [router]);
+
+  const handleLogout = () => {
+    clearAuthData();
+    router.push('/login');
+  };
+
+  const handlePasswordChange = () => {
+    if (passwordData.new !== passwordData.confirm) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    // In a real app, this would call an API
+    alert('Password change functionality would be implemented here');
+    setShowPasswordChange(false);
+    setPasswordData({ current: '', new: '', confirm: '' });
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -338,13 +375,44 @@ export default function FinancePage() {
     return breadcrumbs;
   };
 
-  const handleDownload = (item: FileItem) => {
-    // In a real application, this would download the actual file
-    // For now, we'll create a simple text file as a placeholder
+  const handleDownload = async (item: FileItem) => {
+    if (item.type === 'file') {
+      // In a real application, this would download the actual file
+      // For now, we'll create a simple text file as a placeholder
+      const element = document.createElement('a');
+      const file = new Blob([`This is a placeholder for ${item.name}`], { type: 'text/plain' });
+      element.href = URL.createObjectURL(file);
+      element.download = item.name;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } else if (item.type === 'folder') {
+      // Download folder as ZIP
+      await downloadFolderAsZip(item);
+    }
+  };
+
+  const downloadFolderAsZip = async (folder: FileItem) => {
+    const zip = new JSZip();
+
+    const addItemsToZip = (items: FileItem[], currentPath = '') => {
+      items.forEach(item => {
+        if (item.type === 'file') {
+          // Add placeholder file content
+          zip.file(`${currentPath}${item.name}`, `This is a placeholder for ${item.name}`);
+        } else if (item.type === 'folder' && item.children) {
+          const folderPath = `${currentPath}${item.name}/`;
+          addItemsToZip(item.children, folderPath);
+        }
+      });
+    };
+
+    addItemsToZip([folder]);
+
+    const content = await zip.generateAsync({ type: 'blob' });
     const element = document.createElement('a');
-    const file = new Blob([`This is a placeholder for ${item.name}`], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = item.name;
+    element.href = URL.createObjectURL(content);
+    element.download = `${folder.name}.zip`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -772,6 +840,10 @@ export default function FinancePage() {
       key={item.id}
       className="bg-slate-50 rounded-lg p-4 hover:bg-slate-100 transition-colors cursor-pointer group"
       onDoubleClick={() => item.type === 'folder' && setCurrentFolder(item.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, item });
+      }}
     >
       <div className="flex flex-col items-center space-y-3">
         <div className="relative">
@@ -839,6 +911,10 @@ export default function FinancePage() {
       key={item.id}
       className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
       onDoubleClick={() => item.type === 'folder' && setCurrentFolder(item.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, item });
+      }}
     >
       <div className="flex items-center space-x-3">
         {item.type === 'folder' ? (
@@ -908,43 +984,56 @@ export default function FinancePage() {
     </div>
   );
 
+  const handleClickOutside = (e: React.MouseEvent) => {
+    if (contextMenu) {
+      setContextMenu(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100" onClick={handleClickOutside}>
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 p-6">
+      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 p-4 md:p-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             <button
               onClick={() => router.push('/')}
               className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">Finance Management</h1>
-              <p className="text-slate-600">Manage financial operations and documents</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg md:text-2xl font-bold text-slate-800 truncate">Finance Management</h1>
+              <p className="text-sm md:text-base text-slate-600 truncate">Manage financial operations and documents</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-1 md:space-x-2 px-3 py-2 md:px-4 md:py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       </header>
 
       {/* Tabs */}
       <div className="bg-white border-b border-slate-200/50">
-        <div className="px-6">
-          <nav className="flex space-x-8">
+        <div className="px-4 md:px-6">
+          <nav className="flex space-x-4 md:space-x-8 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`flex items-center space-x-1 md:space-x-2 py-3 md:py-4 px-2 border-b-2 font-medium text-xs md:text-sm transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3 h-3 md:w-4 md:h-4" />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -954,47 +1043,47 @@ export default function FinancePage() {
       </div>
 
       {/* Content */}
-      <main className="p-6">
+      <main className="p-4 md:p-6">
         {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="space-y-4 md:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-600 text-sm">Total Revenue</p>
-                    <p className="text-2xl font-bold text-slate-800">
+                    <p className="text-slate-600 text-xs md:text-sm">Total Revenue</p>
+                    <p className="text-xl md:text-2xl font-bold text-slate-800">
                       ${transactions
                         .filter(t => t.type === 'income')
                         .reduce((sum, t) => sum + t.amount, 0)
                         .toLocaleString()}
                     </p>
                   </div>
-                  <div className="p-3 bg-green-100 rounded-xl">
-                    <DollarSign className="w-6 h-6 text-green-600" />
+                  <div className="p-2 md:p-3 bg-green-100 rounded-xl">
+                    <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+              <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-600 text-sm">Expenses</p>
-                    <p className="text-2xl font-bold text-slate-800">
+                    <p className="text-slate-600 text-xs md:text-sm">Expenses</p>
+                    <p className="text-xl md:text-2xl font-bold text-slate-800">
                       ${transactions
                         .filter(t => t.type === 'expense')
                         .reduce((sum, t) => sum + t.amount, 0)
                         .toLocaleString()}
                     </p>
                   </div>
-                  <div className="p-3 bg-red-100 rounded-xl">
-                    <TrendingUp className="w-6 h-6 text-red-600" />
+                  <div className="p-2 md:p-3 bg-red-100 rounded-xl">
+                    <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+              <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/50 sm:col-span-2 lg:col-span-1">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-slate-600 text-sm">Profit Margin</p>
-                    <p className="text-2xl font-bold text-slate-800">
+                    <p className="text-slate-600 text-xs md:text-sm">Profit Margin</p>
+                    <p className="text-xl md:text-2xl font-bold text-slate-800">
                       {(() => {
                         const totalRevenue = transactions
                           .filter(t => t.type === 'income')
@@ -1008,8 +1097,8 @@ export default function FinancePage() {
                       })()}
                     </p>
                   </div>
-                  <div className="p-3 bg-blue-100 rounded-xl">
-                    <PieChart className="w-6 h-6 text-blue-600" />
+                  <div className="p-2 md:p-3 bg-blue-100 rounded-xl">
+                    <PieChart className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                   </div>
                 </div>
               </div>
@@ -1018,8 +1107,8 @@ export default function FinancePage() {
         )}
 
         {activeTab === 'documents' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/50">
               {/* Breadcrumbs */}
               <div className="flex items-center space-x-2 mb-6">
                 {getBreadcrumbs().map((crumb, index) => (
@@ -1035,38 +1124,40 @@ export default function FinancePage() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-slate-800">Document Management</h2>
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 md:mb-6 gap-4">
+                <h2 className="text-base md:text-lg font-semibold text-slate-800">Document Management</h2>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full md:w-auto">
+                  <div className="relative flex-1 md:flex-initial">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Search files and folders..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-4 py-2 bg-slate-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-slate-700 placeholder-slate-400"
+                      className="w-full pl-10 pr-4 py-2 bg-slate-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-slate-700 placeholder-slate-400 text-sm md:text-base"
                     />
                   </div>
-                  <button
-                    onClick={() => setShowNewFolderInput(true)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-slate-600 text-white rounded-xl hover:bg-slate-700 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>New Folder</span>
-                  </button>
-                  <label className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors cursor-pointer">
-                    <Upload className="w-4 h-4" />
-                    <span>Upload Files</span>
-                    <input
-                      key={uploadKey}
-                      type="file"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-                    />
-                  </label>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setShowNewFolderInput(true)}
+                      className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-slate-600 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm md:text-base"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="hidden sm:inline">New Folder</span>
+                    </button>
+                    <label className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors cursor-pointer text-sm md:text-base">
+                      <Upload className="w-4 h-4" />
+                      <span className="hidden sm:inline">Upload Files</span>
+                      <input
+                        key={uploadKey}
+                        type="file"
+                        multiple
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -1100,7 +1191,7 @@ export default function FinancePage() {
                 </div>
               )}
 
-              <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4" : "space-y-4"}>
+              <div className={viewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-4" : "space-y-3 md:space-y-4"}>
                 {getCurrentItems().length > 0 ? (
                   getCurrentItems().map(item => viewMode === 'grid' ? renderGridItem(item) : renderFileItem(item))
                 ) : (
@@ -1116,16 +1207,16 @@ export default function FinancePage() {
         )}
 
         {activeTab === 'reports' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
-              <h2 className="text-lg font-semibold text-slate-800 mb-6">Financial Reports</h2>
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/50">
+              <h2 className="text-base md:text-lg font-semibold text-slate-800 mb-4 md:mb-6">Financial Reports</h2>
 
               {/* Report Filters */}
-              <div className="flex items-center space-x-4 mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4 md:mb-6">
                 <select
                   value={reportFilter}
                   onChange={(e) => setReportFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 bg-slate-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                 >
                   <option>All Time</option>
                   <option>This Year</option>
@@ -1135,14 +1226,14 @@ export default function FinancePage() {
                 </select>
                 <button
                   onClick={() => setShowAdvancedReport(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
                 >
                   Generate Report
                 </button>
               </div>
 
               {/* Charts Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {/* Monthly Revenue Chart */}
                 <div className="bg-slate-50 rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-slate-800 mb-4">Monthly Revenue</h3>
@@ -1338,7 +1429,7 @@ export default function FinancePage() {
               </div>
 
               {/* Summary Stats */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="mt-4 md:mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
                   <p className="text-sm text-blue-600 font-medium">Total Transactions</p>
                   <p className="text-2xl font-bold text-blue-800">{getFilteredTransactionsForReports.length}</p>
@@ -1371,42 +1462,42 @@ export default function FinancePage() {
         )}
 
         {activeTab === 'transactions' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-slate-800">Transaction History</h2>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search transactions..."
-                        value={transactionSearchQuery}
-                        onChange={(e) => setTransactionSearchQuery(e.target.value)}
-                        className="pl-10 pr-4 py-2 bg-slate-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-slate-700 placeholder-slate-400"
-                      />
-                    </div>
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/50">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 md:mb-6 gap-4">
+                <h2 className="text-base md:text-lg font-semibold text-slate-800">Transaction History</h2>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full md:w-auto">
+                  <div className="relative flex-1 md:flex-initial">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search transactions..."
+                      value={transactionSearchQuery}
+                      onChange={(e) => setTransactionSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-slate-700 placeholder-slate-400 text-sm md:text-base"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setShowIncomeModal(true)}
-                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                      className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm md:text-base"
                     >
                       <PlusCircle className="w-4 h-4" />
-                      <span>Add Income</span>
+                      <span className="hidden sm:inline">Add Income</span>
                     </button>
                     <button
                       onClick={() => setShowExpenseModal(true)}
-                      className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors"
+                      className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors text-sm md:text-base"
                     >
                       <MinusCircle className="w-4 h-4" />
-                      <span>Add Expense</span>
+                      <span className="hidden sm:inline">Add Expense</span>
                     </button>
                   </div>
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse min-w-[800px]">
                   <thead>
                     <tr className="bg-slate-50">
                       <SortableHeader columnKey="type">Type</SortableHeader>
@@ -1500,12 +1591,12 @@ export default function FinancePage() {
         )}
 
         {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
-              <h2 className="text-lg font-semibold text-slate-800 mb-6">Financial Analytics</h2>
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/50">
+              <h2 className="text-base md:text-lg font-semibold text-slate-800 mb-4 md:mb-6">Financial Analytics</h2>
 
               {/* Analytics Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {/* Year-over-Year Trends */}
                 <div className="bg-slate-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-slate-800 mb-4">Year-over-Year Company Performance</h3>
@@ -2732,6 +2823,60 @@ export default function FinancePage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Context Menu */}
+        {contextMenu && contextMenu.item && (
+          <div
+            className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-2 min-w-48"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={() => setContextMenu(null)}
+          >
+            {contextMenu.item.type === 'folder' && (
+              <button
+                onClick={async () => {
+                  await handleDownload(contextMenu.item!);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download as ZIP</span>
+              </button>
+            )}
+            {contextMenu.item.type === 'file' && (
+              <button
+                onClick={async () => {
+                  await handleDownload(contextMenu.item!);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download</span>
+              </button>
+            )}
+            <button
+              onClick={() => {
+                startEditing(contextMenu.item!);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center space-x-2"
+            >
+              <Edit className="w-4 h-4" />
+              <span>Rename</span>
+            </button>
+            <button
+              onClick={() => {
+                deleteItem(contextMenu.item!.id);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete</span>
+            </button>
           </div>
         )}
       </main>

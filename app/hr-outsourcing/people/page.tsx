@@ -158,9 +158,14 @@ export default function PeoplePage() {
 
   // Handle staff status update
   const updateStaffStatus = (staffId: number, newStatus: string): void => {
-    setStaffList((prev: any) => prev.map((staff: any) =>
-      staff.id === staffId ? { ...staff, status: newStatus } : staff
-    ));
+    setStaffList((prev: any) => {
+      const updated = prev.map((staff: any) =>
+        staff.id === staffId ? { ...staff, status: newStatus } : staff
+      );
+      // Save to localStorage immediately
+      localStorage.setItem("staff_list", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   // Handle edit staff
@@ -370,7 +375,7 @@ export default function PeoplePage() {
       name: `${formData.firstName} ${formData.lastName}`,
       email: formData.workEmail,
       hireDate: formData.hireDate,
-      status: formData.employmentStatus || "Active",
+      status: "Active", // Always set to Active when creating new staff
       clientId: formData.clientId,
       gender: formData.gender
     };
@@ -397,7 +402,8 @@ export default function PeoplePage() {
       position: "New Employee", // Default position, can be updated later
       department: formData.department,
       reportsTo: "Manager", // Default, can be updated later
-      clientName: selectedClient.name
+      clientName: selectedClient.name,
+      createdAt: new Date().toISOString() // Add creation timestamp for persistence
     };
 
     // Add to staff list
@@ -444,7 +450,7 @@ export default function PeoplePage() {
       leaveMessage = `\n\nLeave Balance Initialized:\n• Annual Leave: ${annualLeave?.accrued || 0} days accrued (of ${selectedClient.annualLeave} total)\n• Based on ${selectedClient.name} policies\n• Daily accrual will continue automatically`;
     }
     
-    alert(`Staff account created successfully! Leave entitlements have been calculated based on hire date and will accrue daily.${leaveMessage}`);
+    alert(`Staff account created successfully and is now ACTIVE! Leave entitlements have been calculated based on hire date and will accrue daily.${leaveMessage}`);
   };
 
   // Form field component
@@ -688,6 +694,7 @@ export default function PeoplePage() {
                           <tr className="border-b border-slate-200">
                             <th className="text-left py-3 px-4 font-semibold text-slate-700">Name</th>
                             <th className="text-left py-3 px-4 font-semibold text-slate-700">Email</th>
+                            <th className="text-left py-3 px-4 font-semibold text-slate-700">Gender</th>
                             <th className="text-left py-3 px-4 font-semibold text-slate-700">Position</th>
                             <th className="text-left py-3 px-4 font-semibold text-slate-700">Department</th>
                             <th className="text-left py-3 px-4 font-semibold text-slate-700">Client</th>
@@ -704,6 +711,17 @@ export default function PeoplePage() {
                                 <span className="font-medium text-slate-800">{staff.name}</span>
                               </td>
                               <td className="py-4 px-4 text-slate-700">{staff.email}</td>
+                              <td className="py-4 px-4">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  staff.gender === 'Male'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : staff.gender === 'Female'
+                                    ? 'bg-pink-100 text-pink-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {staff.gender || 'Not Specified'}
+                                </span>
+                              </td>
                               <td className="py-4 px-4 text-slate-700">{staff.position}</td>
                               <td className="py-4 px-4 text-slate-700">{staff.department}</td>
                               <td className="py-4 px-4">

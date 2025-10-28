@@ -126,35 +126,35 @@ export default function EnhancedDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="flex">
         {/* Left Navigation Sidebar */}
-        <nav className="w-80 min-h-screen bg-slate-800/50 backdrop-blur-xl border-r border-slate-700/50 sticky top-0">
-          <div className="p-6">
+        <nav className="w-64 md:w-80 min-h-screen bg-slate-800/50 backdrop-blur-xl border-r border-slate-700/50 sticky top-0">
+          <div className="p-4 md:p-6">
             {/* Logo/Brand */}
             <button
               onClick={() => setActiveNav("Dashboard")}
-              className="flex items-center space-x-3 mb-12 hover:opacity-80 transition-opacity cursor-pointer"
+              className="flex items-center space-x-2 md:space-x-3 mb-8 md:mb-12 hover:opacity-80 transition-opacity cursor-pointer"
             >
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-white" />
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-white">Right Seat</span>
+              <span className="text-lg md:text-xl font-bold text-white">Right Seat</span>
             </button>
 
             {/* Navigation Menu */}
-            <ul className="space-y-2">
+            <ul className="space-y-1 md:space-y-2">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <li key={item.id}>
                     <button
                       onClick={() => handleNavClick(item.title)}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                      className={`w-full flex items-center space-x-2 md:space-x-3 px-3 md:px-4 py-2 md:py-3 rounded-xl transition-all duration-200 group ${
                         activeNav === item.title
                           ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                           : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
                       }`}
                     >
-                      <Icon className="w-5 h-5" />
-                      <span className="font-medium">{item.title}</span>
+                      <Icon className="w-4 h-4 md:w-5 md:h-5" />
+                      <span className="font-medium text-sm md:text-base">{item.title}</span>
                     </button>
                   </li>
                 );
@@ -162,14 +162,14 @@ export default function EnhancedDashboard() {
             </ul>
 
             {/* Bottom Navigation */}
-            <div className="mt-12 pt-6 border-t border-slate-700/50 space-y-2">
-              <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200">
-                <Bell className="w-5 h-5" />
-                <span className="font-medium">Alerts</span>
+            <div className="mt-8 md:mt-12 pt-4 md:pt-6 border-t border-slate-700/50 space-y-1 md:space-y-2">
+              <button className="w-full flex items-center space-x-2 md:space-x-3 px-3 md:px-4 py-2 md:py-3 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200">
+                <Bell className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="font-medium text-sm md:text-base">Alerts</span>
               </button>
-              <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200">
-                <Settings className="w-5 h-5" />
-                <span className="font-medium">Settings</span>
+              <button className="w-full flex items-center space-x-2 md:space-x-3 px-3 md:px-4 py-2 md:py-3 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200">
+                <Settings className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="font-medium text-sm md:text-base">Settings</span>
               </button>
             </div>
           </div>
@@ -179,34 +179,34 @@ export default function EnhancedDashboard() {
         <main className="flex-1 min-h-screen">
           <div className="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 p-6">
+            <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 p-4 md:p-6">
               <div className="flex items-center justify-between">
                 {/* Search Bar */}
-                <div className="flex-1 max-w-2xl relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <div className="flex-1 max-w-2xl relative mr-4">
+                  <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
                   <input
                     type="search"
                     placeholder="Search anything..."
                     value={searchQuery}
                     onChange={handleSearch}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-slate-700 placeholder-slate-400"
+                    className="w-full pl-10 md:pl-12 pr-4 py-2 md:py-3 bg-slate-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-slate-700 placeholder-slate-400 text-sm md:text-base"
                   />
                 </div>
 
                 {/* User Profile */}
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 md:space-x-4">
                   <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                    <Bell className="w-5 h-5" />
+                    <Bell className="w-4 h-4 md:w-5 md:h-5" />
                   </button>
                   <div className="relative user-menu-container">
                     <button
                       onClick={() => setShowUserMenu(!showUserMenu)}
-                      className="flex items-center space-x-3 bg-slate-100 rounded-2xl p-2 hover:bg-slate-200 transition-colors"
+                      className="flex items-center space-x-2 md:space-x-3 bg-slate-100 rounded-2xl p-2 hover:bg-slate-200 transition-colors"
                     >
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                        <User className="w-5 h-5 text-white" />
+                      <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
                       </div>
-                      <div>
+                      <div className="hidden sm:block">
                         <p className="text-sm font-semibold text-slate-800">Lionel Ishimwe</p>
                         <p className="text-xs text-slate-500">Super Admin</p>
                       </div>
@@ -234,20 +234,20 @@ export default function EnhancedDashboard() {
             </header>
 
             {/* Content Area */}
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6">
               {/* News/Announcements */}
-              <section className="bg-white rounded-2xl shadow-sm border border-slate-200/50 p-6">
-                <h2 className="text-lg font-semibold text-slate-800 mb-4">Latest Updates</h2>
-                <div className="space-y-4">
+              <section className="bg-white rounded-2xl shadow-sm border border-slate-200/50 p-4 md:p-6">
+                <h2 className="text-base md:text-lg font-semibold text-slate-800 mb-3 md:mb-4">Latest Updates</h2>
+                <div className="space-y-3 md:space-y-4">
                   {newsItems.map((item) => (
-                    <article key={item.id} className="flex items-start space-x-4 p-4 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer">
+                    <article key={item.id} className="flex items-start space-x-3 md:space-x-4 p-3 md:p-4 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer">
                       <div
-                        className="w-3 h-3 rounded-full mt-2 flex-shrink-0"
+                        className="w-3 h-3 rounded-full mt-1 md:mt-2 flex-shrink-0"
                         style={{ backgroundColor: item.dotColor }}
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
+                          <span className="text-xs md:text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
                             {item.type}
                           </span>
                           <span className={`text-xs px-2 py-1 rounded-full ${
@@ -256,33 +256,33 @@ export default function EnhancedDashboard() {
                             {item.priority}
                           </span>
                         </div>
-                        <p className="text-slate-700 text-sm leading-relaxed">{item.content}</p>
+                        <p className="text-slate-700 text-xs md:text-sm leading-relaxed">{item.content}</p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                      <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0" />
                     </article>
                   ))}
                 </div>
               </section>
 
               {/* Statistics Cards */}
-              <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
                 {statsData.map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <div key={stat.id} className={`bg-gradient-to-br ${stat.bgGradient} rounded-2xl p-6 border border-white/50 shadow-sm hover:shadow-md transition-all duration-200`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`p-3 rounded-xl bg-white/50 ${stat.textColor}`}>
-                          <Icon className="w-6 h-6" />
+                    <div key={stat.id} className={`bg-gradient-to-br ${stat.bgGradient} rounded-2xl p-4 md:p-6 border border-white/50 shadow-sm hover:shadow-md transition-all duration-200`}>
+                      <div className="flex items-center justify-between mb-3 md:mb-4">
+                        <div className={`p-2 md:p-3 rounded-xl bg-white/50 ${stat.textColor}`}>
+                          <Icon className="w-5 h-5 md:w-6 md:h-6" />
                         </div>
-                        <div className={`text-sm font-medium px-2 py-1 rounded-full ${
+                        <div className={`text-xs md:text-sm font-medium px-2 py-1 rounded-full ${
                           stat.change.startsWith('+') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}>
                           {stat.change}
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-slate-600">{stat.title}</h3>
-                        <p className={`text-3xl font-bold ${stat.textColor}`}>{stat.value}</p>
+                      <div className="space-y-1 md:space-y-2">
+                        <h3 className="text-xs md:text-sm font-medium text-slate-600">{stat.title}</h3>
+                        <p className={`text-2xl md:text-3xl font-bold ${stat.textColor}`}>{stat.value}</p>
                       </div>
                     </div>
                   );
@@ -290,21 +290,21 @@ export default function EnhancedDashboard() {
               </section>
 
               {/* Dashboard Widgets */}
-              <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {dashboardWidgets.map((widget) => (
-                  <div key={widget.id} className="bg-white rounded-2xl shadow-sm border border-slate-200/50 p-6 hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-semibold text-slate-800">{widget.title}</h3>
+                  <div key={widget.id} className="bg-white rounded-2xl shadow-sm border border-slate-200/50 p-4 md:p-6 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between mb-4 md:mb-6">
+                      <h3 className="text-base md:text-lg font-semibold text-slate-800">{widget.title}</h3>
                       <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                        <Menu className="w-5 h-5" />
+                        <Menu className="w-4 h-4 md:w-5 md:h-5" />
                       </button>
                     </div>
-                    <div className="h-64 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl flex items-center justify-center">
+                    <div className="h-48 md:h-64 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl flex items-center justify-center">
                       <div className="text-center space-y-3">
-                        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
-                          <BarChart3 className="w-8 h-8 text-white" />
+                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+                          <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-white" />
                         </div>
-                        <p className="text-slate-500 font-medium">{widget.type} widget content</p>
+                        <p className="text-slate-500 font-medium text-sm md:text-base">{widget.type} widget content</p>
                       </div>
                     </div>
                   </div>

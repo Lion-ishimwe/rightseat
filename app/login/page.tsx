@@ -1,16 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LoginRequest, LoginResponse } from '@/lib/models/types';
-import { setAuthData } from '@/lib/auth';
+import { Eye, EyeOff, LogIn, Users } from 'lucide-react';
+import { authenticateUser, authenticateStaff, setAuthData, initializeDefaultAccounts, isAuthenticated } from '../../lib/auth';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
+  const [loginType, setLoginType] = useState<'admin' | 'staff'>('admin');
+
+  useEffect(() => {
+    // Initialize default accounts on first load
+    initializeDefaultAccounts();
+
+    // Redirect if already authenticated
+    if (isAuthenticated()) {
+      router.push('/');
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,102 +30,176 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        } as LoginRequest),
-      });
+      let authUser;
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Store auth data using the auth utility
-        setAuthData({
-          user: data.data.user,
-          employee: data.data.employee,
-          token: data.data.token,
-        });
-
-        // Redirect to dashboard
-        router.push('/');
+      if (loginType === 'admin') {
+        authUser = authenticateUser(email, password);
       } else {
-        setError(data.message || 'Login failed');
+        authUser = authenticateStaff(email, password);
+      }
+
+      if (authUser) {
+        setAuthData(authUser);
+
+        // Redirect based on role
+        switch (authUser.role) {
+          case 'admin':
+            router.push('/');
+            break;
+          case 'hr_manager':
+            router.push('/hr-outsourcing');
+            break;
+          case 'finance_manager':
+            router.push('/finance');
+            break;
+          case 'business_manager':
+            router.push('/business-operation');
+            break;
+          case 'talent_manager':
+            router.push('/talent-curation');
+            break;
+          case 'comms_manager':
+            router.push('/comms');
+            break;
+          case 'staff':
+            router.push('/staff-portal');
+            break;
+          default:
+            router.push('/');
+        }
+      } else {
+        setError('Invalid email or password');
       }
     } catch (err) {
-      setError('An error occurred during login');
+      setError('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-end py-12 px-4 sm:px-6 lg:px-8 bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/RS27new.jpg')" }}
-    >
-      <div className="max-w-md w-full space-y-8 bg-black bg-opacity-50 p-8 rounded-lg shadow-lg mr-8 lg:mr-16">
-        <div>
-          <h3 className="mt-6 text-center text-3xl font-extrabold text-white">
-             Right Seat Ltd
-          </h3>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 bg-white placeholder-gray-500 text-black rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 bg-white placeholder-gray-500 text-black rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo/Brand */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Users className="w-8 h-8 text-white" />
           </div>
+          <h1 className="text-2xl font-bold text-white mb-2">HR Management System</h1>
+          <p className="text-slate-400">Sign in to your account</p>
+        </div>
 
-          {error && (
-            <div className="rounded-md bg-red-500 bg-opacity-20 p-4 border border-red-400">
-              <div className="text-sm text-red-200">{error}</div>
-            </div>
-          )}
-
-          <div>
+        {/* Login Form */}
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
+          {/* Login Type Toggle */}
+          <div className="flex rounded-lg bg-slate-700/50 p-1 mb-6">
             <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              onClick={() => setLoginType('admin')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                loginType === 'admin'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-slate-300 hover:text-white'
+              }`}
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              Admin/Manager
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginType('staff')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                loginType === 'staff'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Staff Portal
             </button>
           </div>
 
-          <div className="text-center">
-            <p className="text-sm text-gray-200">
-              Default admin credentials: admin@company.com / admin123
-            </p>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-white placeholder-slate-400"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 bg-slate-700/50 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-white placeholder-slate-400"
+                  placeholder="Enter your password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  <span className="font-medium">Sign In</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Default Credentials Info */}
+          <div className="mt-6 p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+            <h3 className="text-sm font-medium text-slate-300 mb-2">Default Credentials:</h3>
+            <div className="space-y-1 text-xs text-slate-400">
+              {loginType === 'admin' ? (
+                <>
+                  <p><strong>Admin:</strong> admin@company.com / admin123</p>
+                  <p><strong>HR Manager:</strong> hr@company.com / hr123</p>
+                  <p><strong>Finance Manager:</strong> finance@company.com / finance123</p>
+                  <p><strong>Business Manager:</strong> business@company.com / business123</p>
+                  <p><strong>Talent Manager:</strong> talent@company.com / talent123</p>
+                  <p><strong>Comms Manager:</strong> comms@company.com / comms123</p>
+                </>
+              ) : (
+                <>
+                  <p><strong>John Doe:</strong> john.doe@company.com / staff1</p>
+                  <p><strong>Jane Smith:</strong> jane.smith@company.com / staff2</p>
+                  <p><strong>Bob Johnson:</strong> bob.johnson@company.com / staff3</p>
+                </>
+              )}
+            </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

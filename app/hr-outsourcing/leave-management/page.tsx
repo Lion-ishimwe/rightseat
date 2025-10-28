@@ -34,6 +34,31 @@ import {
 import { LeaveAccrualService, type LeaveBalance } from "../../../utils/leaveAccrualService";
 import { DailyAccrualTracker } from "../../../utils/dailyAccrualTracker";
 
+interface LeaveRequest {
+  id: number;
+  employeeName: string;
+  employeeId: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  status: "Pending" | "Approved" | "Rejected";
+  requestedDate: string;
+  reason: string;
+  approver: string;
+  department: string;
+  rejectionReason?: string;
+}
+
+interface Employee {
+  id: number | string;
+  name: string;
+  gender: string | null;
+  department: string;
+  email?: string;
+  status?: string;
+}
+
 export default function LeaveManagementPage() {
   const router = useRouter();
   const [activeView, setActiveView] = useState("dashboard");
@@ -45,7 +70,7 @@ export default function LeaveManagementPage() {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showAllBalances, setShowAllBalances] = useState(false);
 
@@ -114,79 +139,97 @@ export default function LeaveManagementPage() {
 
   // Sample leave data - in real app would come from API
   // Updated to match exact staff names and use smaller request amounts to test validation
-  const [leaveRequests, setLeaveRequests] = useState([
-    {
-      id: 1,
-      employeeName: "Sarah Johnson",
-      employeeId: "EMP002",
-      leaveType: "Annual Leave",
-      startDate: "2024-12-20",
-      endDate: "2024-12-22", // Reduced to 3 days to test with accrued balance
-      days: 3,
-      status: "Pending",
-      requestedDate: "2024-12-10",
-      reason: "Christmas holiday with family",
-      approver: "Mike Chen",
-      department: "Operations"
-    },
-    {
-      id: 2,
-      employeeName: "Lionel Ishimwe",
-      employeeId: "EMP001",
-      leaveType: "Sick Leave",
-      startDate: "2024-12-15",
-      endDate: "2024-12-16",
-      days: 2,
-      status: "Approved",
-      requestedDate: "2024-12-14",
-      reason: "Medical appointment and recovery",
-      approver: "Emma Davis",
-      department: "Technology"
-    },
-    {
-      id: 3,
-      employeeName: "Mike Chen",
-      employeeId: "EMP003",
-      leaveType: "Personal Leave",
-      startDate: "2024-12-18",
-      endDate: "2024-12-18",
-      days: 1,
-      status: "Rejected",
-      requestedDate: "2024-12-12",
-      reason: "Personal matters",
-      approver: "Emma Davis",
-      department: "Design",
-      rejectionReason: "Conflicting project deadline"
-    },
-    {
-      id: 4,
-      employeeName: "Emma Davis",
-      employeeId: "EMP004",
-      leaveType: "Annual Leave", // Changed from Maternity to Annual for testing
-      startDate: "2025-01-15",
-      endDate: "2025-01-17", // Reduced to 3 days to test
-      days: 3,
-      status: "Pending", // Changed to Pending to test approval
-      requestedDate: "2024-11-20",
-      reason: "Personal time off",
-      approver: "CEO",
-      department: "Human Resources"
-    },
-    {
-      id: 5,
-      employeeName: "James Brown",
-      employeeId: "EMP005",
-      leaveType: "Study Leave",
-      startDate: "2024-12-22",
-      endDate: "2024-12-24", // Reduced to 3 days
-      days: 3,
-      status: "Pending",
-      requestedDate: "2024-12-08",
-      reason: "Professional certification exam preparation",
-      approver: "Sarah Johnson",
-      department: "Marketing"
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("leave_requests");
+      if (saved) {
+        try { return JSON.parse(saved); } catch { /* fall through */ }
+      }
     }
-  ]);
+    const defaultRequests: LeaveRequest[] = [
+      {
+        id: 1,
+        employeeName: "Sarah Johnson",
+        employeeId: "EMP002",
+        leaveType: "Annual Leave",
+        startDate: "2024-12-20",
+        endDate: "2024-12-22", // Reduced to 3 days to test with accrued balance
+        days: 3,
+        status: "Pending",
+        requestedDate: "2024-12-10",
+        reason: "Christmas holiday with family",
+        approver: "Mike Chen",
+        department: "Operations"
+      },
+      {
+        id: 2,
+        employeeName: "Lionel Ishimwe",
+        employeeId: "EMP001",
+        leaveType: "Sick Leave",
+        startDate: "2024-12-15",
+        endDate: "2024-12-16",
+        days: 2,
+        status: "Approved",
+        requestedDate: "2024-12-14",
+        reason: "Medical appointment and recovery",
+        approver: "Emma Davis",
+        department: "Technology"
+      },
+      {
+        id: 3,
+        employeeName: "Mike Chen",
+        employeeId: "EMP003",
+        leaveType: "Personal Leave",
+        startDate: "2024-12-18",
+        endDate: "2024-12-18",
+        days: 1,
+        status: "Rejected",
+        requestedDate: "2024-12-12",
+        reason: "Personal matters",
+        approver: "Emma Davis",
+        department: "Design",
+        rejectionReason: "Conflicting project deadline"
+      },
+      {
+        id: 4,
+        employeeName: "Emma Davis",
+        employeeId: "EMP004",
+        leaveType: "Annual Leave", // Changed from Maternity to Annual for testing
+        startDate: "2025-01-15",
+        endDate: "2025-01-17", // Reduced to 3 days to test
+        days: 3,
+        status: "Pending", // Changed to Pending to test approval
+        requestedDate: "2024-11-20",
+        reason: "Personal time off",
+        approver: "CEO",
+        department: "Human Resources"
+      },
+      {
+        id: 5,
+        employeeName: "James Brown",
+        employeeId: "EMP005",
+        leaveType: "Study Leave",
+        startDate: "2024-12-22",
+        endDate: "2024-12-24", // Reduced to 3 days
+        days: 3,
+        status: "Pending",
+        requestedDate: "2024-12-08",
+        reason: "Professional certification exam preparation",
+        approver: "Sarah Johnson",
+        department: "Marketing"
+      }
+    ];
+
+    // Save default requests to localStorage if it doesn't exist
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("leave_requests");
+      if (!saved) {
+        localStorage.setItem("leave_requests", JSON.stringify(defaultRequests));
+      }
+    }
+
+    return defaultRequests;
+  });
 
   // Employee leave balances - now loaded from LeaveAccrualService
   const [employeeBalances, setEmployeeBalances] = useState<any[]>([]);
@@ -273,24 +316,24 @@ export default function LeaveManagementPage() {
   });
 
   // Filter leave requests based on search and filters
-  const filteredRequests = leaveRequests.filter(request => {
+  const filteredRequests = leaveRequests.filter((request: LeaveRequest) => {
     const matchesSearch = request.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         request.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         request.reason.toLowerCase().includes(searchQuery.toLowerCase());
+                          request.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          request.reason.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesEmployee = selectedEmployee === "all" || request.employeeId === selectedEmployee;
     const matchesStatus = selectedStatus === "all" || request.status === selectedStatus;
     const matchesType = selectedLeaveType === "all" || request.leaveType === selectedLeaveType;
-    
+
     return matchesSearch && matchesEmployee && matchesStatus && matchesType;
   });
 
   // Calculate dashboard statistics
   const stats = {
     totalRequests: leaveRequests.length,
-    pendingRequests: leaveRequests.filter(r => r.status === "Pending").length,
-    approvedRequests: leaveRequests.filter(r => r.status === "Approved").length,
-    rejectedRequests: leaveRequests.filter(r => r.status === "Rejected").length,
-    employeesOnLeave: leaveRequests.filter(r => {
+    pendingRequests: leaveRequests.filter((r: LeaveRequest) => r.status === "Pending").length,
+    approvedRequests: leaveRequests.filter((r: LeaveRequest) => r.status === "Approved").length,
+    rejectedRequests: leaveRequests.filter((r: LeaveRequest) => r.status === "Rejected").length,
+    employeesOnLeave: leaveRequests.filter((r: LeaveRequest) => {
       const today = new Date();
       const startDate = new Date(r.startDate);
       const endDate = new Date(r.endDate);
@@ -300,7 +343,7 @@ export default function LeaveManagementPage() {
 
   // Handle leave request approval/rejection
   const handleRequestAction = (requestId: number, action: "approve" | "reject", reason?: string) => {
-    const request = leaveRequests.find(r => r.id === requestId);
+    const request = leaveRequests.find((r: LeaveRequest) => r.id === requestId);
     if (!request) return;
     
     if (action === "approve") {
@@ -362,15 +405,20 @@ export default function LeaveManagementPage() {
       }
     }
     
-    setLeaveRequests(prev => prev.map(req =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: action === "approve" ? "Approved" : "Rejected",
-            rejectionReason: action === "reject" ? reason : undefined
-          }
-        : req
-    ));
+    setLeaveRequests((prev: LeaveRequest[]) => {
+      const updated = prev.map((req: LeaveRequest) =>
+        req.id === requestId
+          ? {
+              ...req,
+              status: (action === "approve" ? "Approved" : "Rejected") as LeaveRequest["status"],
+              rejectionReason: action === "reject" ? reason : undefined
+            }
+          : req
+      );
+      // Save to localStorage
+      localStorage.setItem("leave_requests", JSON.stringify(updated));
+      return updated;
+    });
     
     setShowApprovalModal(false);
     setSelectedRequest(null);
@@ -476,13 +524,13 @@ export default function LeaveManagementPage() {
   }
 
   // Function to get employee gender by name
-  const getEmployeeGender = (employeeName: string) => {
+  const getEmployeeGender = (employeeName: string): string | null => {
     const employee = employeeData.find((emp: Employee) => emp.name === employeeName);
     return employee?.gender || null;
   };
 
   // Function to get gender-based leave types
-  const getGenderBasedLeaveTypes = (gender: string | null) => {
+  const getGenderBasedLeaveTypes = (gender: string | null): string[] => {
     const baseTypes = [
       "Annual Leave",
       "Sick Leave",
@@ -495,21 +543,21 @@ export default function LeaveManagementPage() {
     } else if (gender === "male") {
       return [...baseTypes, "Paternity Leave"];
     }
-    
+
     return [...baseTypes, "Maternity Leave", "Paternity Leave"];
   };
 
   // Function to get default leave type based on gender (for automatic selection)
-  const getDefaultLeaveType = (gender: string | null, currentLeaveType: string) => {
+  const getDefaultLeaveType = (gender: string | null, currentLeaveType: string): string => {
     // Only auto-select if no leave type is currently selected
     if (currentLeaveType) return currentLeaveType;
-    
+
     if (gender === "female") {
       return "Maternity Leave";
     } else if (gender === "male") {
       return "Paternity Leave";
     }
-    
+
     return "";
   };
 
@@ -585,7 +633,7 @@ export default function LeaveManagementPage() {
       }
     }
 
-    const newId = Math.max(...leaveRequests.map(r => r.id)) + 1;
+    const newId = Math.max(...leaveRequests.map((r: LeaveRequest) => r.id)) + 1;
     const request = {
       id: newId,
       employeeName: newRequest.employeeName,
@@ -601,7 +649,12 @@ export default function LeaveManagementPage() {
       department: employee.department || "Various"
     };
 
-    setLeaveRequests(prev => [...prev, request]);
+    setLeaveRequests((prev: LeaveRequest[]) => {
+      const updated = [...prev, request];
+      // Save to localStorage
+      localStorage.setItem("leave_requests", JSON.stringify(updated));
+      return updated;
+    });
     setNewRequest({
       employeeName: "",
       leaveType: "",
@@ -615,31 +668,31 @@ export default function LeaveManagementPage() {
   };
 
   // Get unique employees for filter dropdown
-  const uniqueEmployees = Array.from(new Set(leaveRequests.map(r => ({ id: r.employeeId, name: r.employeeName }))))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const uniqueEmployees = Array.from(new Set(leaveRequests.map((r: LeaveRequest) => ({ id: r.employeeId, name: r.employeeName }))))
+    .sort((a: { id: string; name: string }, b: { id: string; name: string }) => a.name.localeCompare(b.name));
 
   // Get current selected employee's gender for form
-  const selectedEmployeeGender = getEmployeeGender(newRequest.employeeName);
-  const availableLeaveTypes = getGenderBasedLeaveTypes(selectedEmployeeGender);
+  const selectedEmployeeGender: string | null = getEmployeeGender(newRequest.employeeName);
+  const availableLeaveTypes: string[] = getGenderBasedLeaveTypes(selectedEmployeeGender);
 
   // Calendar view helpers
-  const getDaysInMonth = (date: Date) => {
+  const getDaysInMonth = (date: Date): number => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   };
 
-  const getFirstDayOfMonth = (date: Date) => {
+  const getFirstDayOfMonth = (date: Date): number => {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
-  const getLeaveForDate = (date: Date) => {
+  const getLeaveForDate = (date: Date): LeaveRequest[] => {
     const dateStr = date.toISOString().split('T')[0];
-    return leaveRequests.filter(request => {
+    return leaveRequests.filter((request: LeaveRequest) => {
       if (request.status !== "Approved") return false;
       return dateStr >= request.startDate && dateStr <= request.endDate;
     });
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -647,7 +700,7 @@ export default function LeaveManagementPage() {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case "Approved":
         return "bg-green-100 text-green-800 border-green-200";
@@ -660,7 +713,7 @@ export default function LeaveManagementPage() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string): React.ReactElement => {
     switch (status) {
       case "Approved":
         return <CheckCircle2 className="w-4 h-4" />;
@@ -930,7 +983,7 @@ export default function LeaveManagementPage() {
                       </div>
 
                       <div className="space-y-4">
-                        {leaveRequests.slice(0, 5).map((request) => (
+                        {leaveRequests.slice(0, 5).map((request: LeaveRequest) => (
                           <div key={request.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
                             <div className="flex items-center space-x-4">
                               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -1087,7 +1140,7 @@ export default function LeaveManagementPage() {
                               {day}
                             </div>
                             <div className="space-y-1 mt-1">
-                              {leavesForDay.slice(0, 2).map((leave, idx) => (
+                              {leavesForDay.slice(0, 2).map((leave: LeaveRequest, idx: number) => (
                                 <div
                                   key={idx}
                                   className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 truncate"
@@ -1131,7 +1184,7 @@ export default function LeaveManagementPage() {
                           className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         >
                           <option value="all">All Employees</option>
-                          {uniqueEmployees.map((emp) => (
+                          {uniqueEmployees.map((emp: { id: string; name: string }) => (
                             <option key={emp.id} value={emp.id}>{emp.name}</option>
                           ))}
                         </select>
@@ -1198,7 +1251,7 @@ export default function LeaveManagementPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredRequests.map((request) => {
+                          {filteredRequests.map((request: LeaveRequest) => {
                             // Calculate business days dynamically for display
                             const businessDays = calculateDays(request.startDate, request.endDate);
                             return (

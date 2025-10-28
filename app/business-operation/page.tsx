@@ -24,7 +24,9 @@ import {
   Edit,
   Trash2,
   FileDown,
+  LogOut,
 } from 'lucide-react';
+import { clearAuthData } from '../../lib/auth';
 import jsPDF from 'jspdf';
 // @ts-ignore
 import 'jspdf-autotable';
@@ -112,6 +114,11 @@ type Tender = {
 export default function BusinessOperationPage() {
     const router = useRouter();
     const [activeSubTab, setActiveSubTab] = useState<'e-signature' | 'project' | 'report'>('e-signature');
+
+    const handleLogout = useCallback(() => {
+        clearAuthData();
+        router.push('/login');
+    }, [router]);
     const [tenders, setTenders] = useState<Tender[]>([]);
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
    const [documentUrl, setDocumentUrl] = useState<string | null>(null);
@@ -836,6 +843,18 @@ export default function BusinessOperationPage() {
                 );
               })}
             </ul>
+
+            {/* Logout Button */}
+            <div className="mt-auto">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group text-slate-300 hover:bg-red-600/50 hover:text-white"
+                aria-label="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Logout</span>
+              </button>
+            </div>
 
             {/* Sub-navigation for Business Operation */}
             <div className="space-y-2">
